@@ -26,18 +26,19 @@ for s in list_s :
     tmp_list = list()
     # 문자열에서 문자를 하나씩 꺼내기
     for i in range(len(s) - 1) :
-        # 중복 확인용 tmp_list에 없으면 리스트에 넣기
-        if s[i] not in tmp_list :
-            tmp_list.append(s[i])
-        # 문자를 비교해서 다르고 중복 확인용 tmp_list에 있으면
-        # 문자가 또 나온 것이므로 그룹단어가 아님
-        elif s[i] != s[i + 1] and s[i] in tmp_list:
-            # 리스트를 비우고 종료
-            tmp_list = list()
-            break
+        # 문자를 비교해서 다르고
+        if s[i] != s[i + 1] :
+            # 중복 확인용 tmp_list에 없으면 리스트에 넣기
+            if s[i] not in tmp_list :
+                tmp_list.append(s[i])
+            # 중복 확인용 리스트에 있으면 
+            # 단어가 또 나온 것이므로 그룹단어가 아님
+            elif s[i] in tmp_list:
+                # tmp_list를 비우고 안쪽 반복문 종료
+                tmp_list = list()
+                break
     # tmp_list의 길이가 0이 아니면 그룹단어임
     if len(tmp_list) != 0 :
-        print(s)
         count += 1
         
 # 그룹단어 개수 출력
