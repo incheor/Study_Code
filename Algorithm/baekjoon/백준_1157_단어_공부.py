@@ -41,4 +41,4 @@ for i in range(len(S)) :
     # 마지막까지 반복했는데 위의 조건문에 안 걸리면
     if i == len(S) - 1 :
         # 최대갯수의 알파벳을 출력
-        print(m_s)
+        print(m_s) 
