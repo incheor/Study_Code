@@ -276,7 +276,10 @@ sum_count = sum(list_count)
 
 # lambda는 파이썬에서 가장 빠름, 대신 한 줄로 표현해야 함
 # x는 개별값, 개별 값 / 전체 값으로 계산으로 계산해서 대체함
-cnt_norms = list(map(lambda x : x / sum_count, list_count))
+try :
+  cnt_norms = list(map(lambda x : x / sum_count, list_count))
+except :
+  pass
 
 # 확인하기
 print(cnt_norms)
