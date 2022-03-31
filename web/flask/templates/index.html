@@ -8,7 +8,7 @@
 <body>
     <div>
         <fieldset>
-            <textarea cols = "30" rows = "20" id = "ori_text">번역할 내용을 입력하세요.</textarea>
+            <textarea cols = "30" rows = "20" id = "ori_text">{{key}} 번역할 내용을 입력하세요.</textarea>
             <textarea cols = "30" rows = "20"></textarea>
             <button type = "button" onclick = "javascript : lang_detect();">언어감지 요청</button>
         </fieldset>
@@ -40,10 +40,10 @@
                 'url' : '/lang_detect', // 데이터를 보낼 주소
                 'data' : 'ori_src=' + target, // 보낼 데이터(value side)를 '키=값' 형태로  만듬
                 'dataType' : 'json', // 응답 데이터를 json 처리, flask에서는 딕셔너리 형태로 전송하기
-                success : (res) => { // 송신 성공시 res 타고 들어옴
+                success : function (res) { // 송신 성공시 res 타고 들어옴
                     console.log('성공', res)
                 },
-                error : (err) => { // 송신 실패시 err 타고 들어옴
+                error : function (err) { // 송신 실패시 err 타고 들어옴
                     console.log('실패', err)
                 },
             })
