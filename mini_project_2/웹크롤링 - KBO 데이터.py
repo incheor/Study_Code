@@ -58,7 +58,7 @@ df = df.drop([0]).reset_index(drop = True)
 df
 
 
-# In[75]:
+# In[36]:
 
 
 def kbo_record(position, years, path) :
@@ -71,7 +71,6 @@ def kbo_record(position, years, path) :
     from selenium import webdriver
     from bs4 import BeautifulSoup as bs
     import pandas as pd
-    import os
     import time
     from html_table_parser import parser_functions
     
@@ -91,15 +90,28 @@ def kbo_record(position, years, path) :
     # 동적 웹 페이지의 페이지를 연도로 갱신해주기 위한 드롭박스 태그의 id
     tag_id = 'cphContents_cphContents_cphContents_ddlSeason_ddlSeason'
     
+    # 진행률 표시용
+    count = 0
+    
+    # 타자 또는 투수면 2배
+    if position == '타자' or position == '투수' :
+        rng = ((years + 1) - 2001) * 2
+    else :
+        rng = ((years + 1) - 2001)
+    
     # for문으로 입력받은 리스트를 돌면서
     # 입력받은 포지션의 연도별 데이터 웹크롤링하고
     # 입력받은 경로에 csv파일 형태로 다운로드힘
     for year in range(2001, years + 1) :
+        print(f'현재 진행률 : {round((count / rng) * 100, 2)}%')
         # 크롬 드라이버로 url 넣어줌
         driver.get(url)
+        time.sleep(1)
+        
         # find_element_by_id로 드롭박스를 찾고
         # 그 태그에 연도 값을 넣어서 페이지를 갱신해줌 
         driver.find_element_by_id(tag_id).send_keys(str(year))
+        time.sleep(1)
         
         # 렌더링된 페이지의 요소들을 문자열 형태로 가져오기 
         html = driver.page_source
@@ -112,7 +124,6 @@ def kbo_record(position, years, path) :
         
         # html의 테이블을 파이썬의 리스트 형태로 변환하기
         table = parser_functions.make2d(data)
-        
         
         # 위에서 변환한 테이블 데이터를 데이터 프레임으로 만들어줌
         df = pd.DataFrame(data = table)
@@ -128,35 +139,64 @@ def kbo_record(position, years, path) :
         # 경로에 csv 파일로 저장
         df.to_csv(f'{path}/{year}년도_{position}_데이터.csv')
         
+        # 진행률 추가해주기
+        count += 1
+        
     # 타자와 투수는 두 페이지로 구성되어 있음
     # 위는 한 페이지만 웹 크롤링, 아래는 두번째 페이지 웹크롤링
     if position == '타자' :
         url = 'https://www.koreabaseball.com/Record/Team/Hitter/Basic2.aspx'
+        for year in range(2001, years + 1) :
+            print(f'현재 진행률 : {round((count / rng) * 100, 2)}%')
+            driver.get(url)
+            time.sleep(1)
+            driver.find_element_by_id(tag_id).send_keys(str(year))
+            time.sleep(1)
+            html = driver.page_source
+            soup = bs(html, 'html.parser')
+            data = soup.find('table', {'class' : 'tData tt'})
+            table = parser_functions.make2d(data)
+            df = pd.DataFrame(data = table)
+            df.columns = df.iloc[0]
+            df = df.drop([0]).reset_index(drop = True)
+            if path[-1] == '/' :
+                del(path[-1])
+            df.to_csv(f'{path}/{year}년도_{position}_데이터_2.csv')
+            count += 1
+            
     elif position == '투수' :
         url = 'https://www.koreabaseball.com/Record/Team/Pitcher/Basic2.aspx'
-    for year in range(2001, years + 1) :
-        driver.get(url)
-        driver.find_element_by_id(tag_id).send_keys(str(year))
-        html = driver.page_source
-        soup = bs(html, 'html.parser')
-        data = soup.find('table', {'class' : 'tData tt'})
-        table = parser_functions.make2d(data)
-        df = pd.DataFrame(data = table)
-        df.columns = df.iloc[0]
-        df = df.drop([0]).reset_index(drop = True)
-        if path[-1] == '/' :
-            del(path[-1])
-        df.to_csv(f'{path}/{year}년도_{position}_데이터_2.csv')
+        for year in range(2001, years + 1) :
+            print(f'현재 진행률 : {round((count / rng) * 100, 2)}%')
+            driver.get(url)
+            time.sleep(1)
+            driver.find_element_by_id(tag_id).send_keys(str(year))
+            time.sleep(1)
+            html = driver.page_source
+            soup = bs(html, 'html.parser')
+            data = soup.find('table', {'class' : 'tData tt'})
+            table = parser_functions.make2d(data)
+            df = pd.DataFrame(data = table)
+            df.columns = df.iloc[0]
+            df = df.drop([0]).reset_index(drop = True)
+            if path[-1] == '/' :
+                del(path[-1])
+            df.to_csv(f'{path}/{year}년도_{position}_데이터_2.csv')
+            count += 1
+            
+    print(f'현재 진행률 : {round((count / rng) * 100, 2)}%')
+    print('다운로드가 완료되었습니다.')
 
 
-# In[76]:
+# In[38]:
 
 
+import os
 while True :
     position = input('1. 데이터를 추출할 포지션을 입력해 주세요(타자 / 투수 / 수비 / 주루) : ')
     if position == '타자' or position == '투수' or position == '수비' or position == '주루':
         try :
-            years = int(input('2. 데이터를 추출할 연도들을 입력해주세요(2001년 이후로 입력바랍니다.) : '))
+            years = int(input('2. 데이터를 추출할 연도를 입력해주세요(2001년 이후로 입력바랍니다.) : '))
             if years < 2001 :
                 print('잘못 입력하셨습니다. 2001년 이후로 입력해주세요.\n')
                 continue
@@ -175,12 +215,6 @@ while True :
 
 # 함수에 매개변수 전달
 kbo_record(position, years, path = path)
-
-
-# In[69]:
-
-
-a = 'C:\Users\admin\Desktop\새 폴더'
 
 
 # In[ ]:
