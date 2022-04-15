@@ -258,10 +258,13 @@ def kbo_preprocessing(path, source_data_path) :
         # 전처리 데이터 불러오기
         df= pd.read_csv(preprocessing_file_path)
         
+        # 연도와 팀명으로 정렬
+        df = df.sort_values(by = ['연도', '팀명'])
+        
         # 연도, 팀명, 순위 컬럼은 제거
         df = df.drop(['연도', '팀명', '순위'], axis = 1)
         
-        # 통합용 임시 데이터 프레임과 합치기, 옆으로 함치기
+        # 통합용 임시 데이터 프레임과 합치기, 옆으로 합치기
         tmp_df = pd.concat([tmp_df, df], axis = 1)
         
         count += 1
@@ -270,7 +273,7 @@ def kbo_preprocessing(path, source_data_path) :
     total_preprocessing_file_name = preprocessing + '/kbo_통합_데이터.csv'
     
     # 저장하기
-    tmp_df.to_csv(total_preprocessing_file_name)
+    tmp_df.to_csv(total_preprocessing_file_name, index = True)
     
     print('전처리 진행중... 100%')
     print('전처리를 완료했습니다.\n')
