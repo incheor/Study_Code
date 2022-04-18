@@ -29,7 +29,7 @@ def run_start() :
             if os.path.isdir(path) == False :
                 print('잘못 입력하셨습니다. 정확한 폴더 경로를 입력해주세요.\n')
                 continue
-            print('데이터 추출을 시작합니다. 시간이 조금 소요될 수 있습니다.')
+            print('데이터 추출을 시작합니다. 시간이 조금 소요될 수 있습니다.\n')
             break
         except Exception as e :
             print('잘못 입력하셨습니다. 정확한 연도를 입력해주세요.\n')
@@ -140,9 +140,15 @@ def kbo_record_web_crawling(year, path) :
                     # csv 파일 경로 설정
                     file_name = f'/{position}_{year}년_1_원본_데이터.csv'
                     csv_file_path = position_dir_path + file_name
-
+                    
                     # 경로에 같은 이름의 파일이 있으면 이름 변경해줌
                     if file_name[1:] in os.listdir(position_dir_path) :
+                        csv_file_path = position_dir_path + f'/{position}_{year}년_2_원본_데이터.csv'
+                    if position == '타자' and file_name[1:] in os.listdir(position_dir_path) :
+                        df = df.drop(['AVG'], axis = 1).reset_index(drop = True)
+                        csv_file_path = position_dir_path + f'/{position}_{year}년_2_원본_데이터.csv'
+                    if position == '투수' and file_name[1:] in os.listdir(position_dir_path) :
+                        df = df.drop(['ERA'], axis = 1).reset_index(drop = True)
                         csv_file_path = position_dir_path + f'/{position}_{year}년_2_원본_데이터.csv'
 
                     # csv 파일로 만들어서 포지션 폴더에 저장해주기
