@@ -259,7 +259,7 @@ def kbo_preprocessing(path, source_data_path) :
         preprocessing_file_path = preprocessing + '/' + preprocessing_file
         
         # 통합할 데이터 불러오기
-        df= pd.read_csv(preprocessing_file_path)
+        df= pd.read_csv(preprocessing_file_path).sort_values(by = ['연도', '팀명']).reset_index(drop = True)
         
         # 연도, 팀명, 순위 컬럼은 제거
         df = df.drop(['연도', '팀명', '순위'], axis = 1)
