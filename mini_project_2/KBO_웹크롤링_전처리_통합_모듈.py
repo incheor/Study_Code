@@ -4,9 +4,9 @@ def run() :
     path, source_data_path = kbo_record_web_crawling(year, path)
     preprocessing, total_preprocessing_file_name = kbo_preprocessing(path, source_data_path)
     final_path = win_post_web_data(year, preprocessing, total_preprocessing_file_name)
-    csv_file_path = now_score_kbo(path)
+    total_preprocessing_file_name = now_score_kbo(path)
     max_model, max_random_state = als_analysis(final_path)
-    rank_team = predict_rank(max_model, max_random_state, final_path, csv_file_path)
+    rank_team = predict_rank(max_model, max_random_state, final_path, total_preprocessing_file_name)
     return rank_team
 
 # 시작 함수
@@ -275,8 +275,6 @@ def now_score_kbo(path) :
                 count += 1
         print('데이터 추출 진행중... 100%')
         print('데이터 추출을 완료했습니다.\n')
-        
-        return csv_file_path
     
     except Exception as e :
         print('<<< 에러 >>>')
@@ -315,6 +313,8 @@ def now_score_kbo(path) :
     # 저장하기
     tmp_df.to_csv(total_preprocessing_file_name)
     print('데이터 통합을 완료했습니다.\n')
+    
+    return total_preprocessing_file_name
 
 # 포지션별 성적 통합 함수
 def kbo_preprocessing(path, source_data_path) :
@@ -428,6 +428,7 @@ def kbo_preprocessing(path, source_data_path) :
     
     return preprocessing, total_preprocessing_file_name
 
+# 우승, 포스트시즌 진출팀 웹크롤링 및 통합
 def win_post_web_data(year, preprocessing, total_preprocessing_file_name) :
     '''
     years(int) : 데이터를 추출할 기간을 설정하는 연도(2001년부터)
@@ -562,6 +563,7 @@ def win_post_web_data(year, preprocessing, total_preprocessing_file_name) :
     
     return final_path
 
+# 분석
 def als_analysis(final_path) :
     '''
     final_path : 해당 경로의 최종 데이터를 활용해서 알고리즘별 학습, 예측, 성능분석을 하고 최고 성능의 알고리즘과 난수를 리턴함 
@@ -643,7 +645,8 @@ def als_analysis(final_path) :
     
     return max_model, max_random_state
 
-def predict_rank(max_model, max_random_state, final_path, csv_file_path) :
+# 순위 예측
+def predict_rank(max_model, max_random_state, final_path, total_preprocessing_file_name) :
     '''
     max_model : 최고 성능의 알고리즘 객체
     max_random_state : 최고 성능의 난수
@@ -665,7 +668,7 @@ def predict_rank(max_model, max_random_state, final_path, csv_file_path) :
     # 파일 불러오기
     import pandas as pd
     
-    now_df = pd.read_csv(csv_file_path).drop(['Unnamed: 0'], axis = 1)
+    now_df = pd.read_csv(total_preprocessing_file_name).drop(['Unnamed: 0'], axis = 1)
     now_df = now_df[(now_df['팀명'] != '합계')]
     
     now_stat = dict()
@@ -707,3 +710,7 @@ def predict_rank(max_model, max_random_state, final_path, csv_file_path) :
     print(rank_team)
     
     return rank_team
+
+
+if __name__ == '__main__':
+    run()
