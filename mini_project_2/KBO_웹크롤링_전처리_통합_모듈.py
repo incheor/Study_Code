@@ -639,9 +639,10 @@ def als_analysis(final_path) :
             
     print(f'분석 진행중... 100%\n')
     print('데이터 분석 종료\n')
-    print('최고 성능 알고리즘과 점수')
+    print('최고 성능 알고리즘과 점수, 난수')
     print(f'als : {max_model_name}')
     print(f'auc : {max_auc}')
+    print(f'random_state : {max_random_state}')
     
     return max_model, max_random_state
 
