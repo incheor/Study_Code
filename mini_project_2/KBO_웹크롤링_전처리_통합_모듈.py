@@ -2,9 +2,12 @@
 def run() :
     year, path = run_start()
     path, source_data_path = kbo_record_web_crawling(year, path)
-
     preprocessing, total_preprocessing_file_name = kbo_preprocessing(path, source_data_path)
-    win_post_web_data(year, preprocessing, total_preprocessing_file_name)
+    final_path = win_post_web_data(year, preprocessing, total_preprocessing_file_name)
+    csv_file_path = now_score_kbo(path)
+    max_model, max_random_state = als_analysis(final_path)
+    rank_team = predict_rank(max_model, max_random_state, final_path, csv_file_path)
+    return rank_team
 
 # 시작 함수
 def run_start() :    
@@ -167,6 +170,151 @@ def kbo_record_web_crawling(year, path) :
         print('<<< 에러 >>>')
         print(e)
         print('프로그램을 종료합니다')
+
+# 현재 성적 데이터 추출 및 통합 함수        
+def now_score_kbo(path) :
+    '''
+    path(string) : 다운로드받을 경로
+    '''
+    # 라이브러리
+    from selenium import webdriver
+    from bs4 import BeautifulSoup as bs
+    import pandas as pd
+    import time
+    from html_table_parser import parser_functions
+    import os
+    from datetime import datetime
+
+    # 현재 시간(연도)
+    now = datetime.now()
+    year = now.year
+
+    # 크롬 드라이버
+    driver = webdriver.Chrome('C:/ChromeDriver_exe/chrome_99_driver.exe')
+
+    # 포지션별 url 딕셔너리
+    dict_positioin_url = {
+        '타자' : ['https://www.koreabaseball.com/Record/Team/Hitter/Basic1.aspx', 'https://www.koreabaseball.com/Record/Team/Hitter/Basic2.aspx'],
+        '투수' : ['https://www.koreabaseball.com/Record/Team/Pitcher/Basic1.aspx', 'https://www.koreabaseball.com/Record/Team/Pitcher/Basic2.aspx'],
+        '수비' : ['https://www.koreabaseball.com/Record/Team/Defense/Basic.aspx'],
+        '주루' : ['https://www.koreabaseball.com/Record/Team/Runner/Basic.aspx']
+    }
+
+    # 동적 웹 페이지의 페이지를 연도로 갱신해주기 위한 드롭박스 태그의 id
+    tag_id = 'cphContents_cphContents_cphContents_ddlSeason_ddlSeason'
+
+    # 경로의 끝에 '/' 가 있으면 제거해줌
+    if path[-1] == '/' :
+        path = path[:-1]
+
+    # 추출한 데이터를 저장할 폴더 경로 설정
+    now_score_data_path = path + '/현재_성적_데이터'
+
+    # 폴더 생성
+    try :
+        os.makedirs(now_score_data_path)
+    except Exception as e :
+        print('<<< 에러 >>>')
+        print(e)
+        
+    try :
+        print(f'----- 올해 현재 성적 데이터 추출 시작 -----\n')
+        count = 0
+        rng = 6
+        # for문으로 포지션별 딕셔너리의 포지션명과 url 가져옴
+        for position, urls in dict_positioin_url.items() :
+            # 포지션별 url 가져옴
+            for url in urls :
+                progress = round((count / rng) * 100, 1)
+                print(f'데이터 추출 진행중... {progress}%')
+                # 크롬 드라이버로 url 넣어줌
+                driver.get(url)
+                time.sleep(1)
+
+                # find_element_by_id로 드롭박스를 찾고
+                # 그 태그에 연도 값을 넣어서 페이지를 갱신해줌 
+                driver.find_element_by_id(tag_id).send_keys(str(year))
+                time.sleep(1)
+
+                # 렌더링된 페이지의 요소들을 문자열 형태로 가져오기 
+                html = driver.page_source
+
+                # 문자열 형태로 가져와서 html 형태로 변환하기
+                soup = bs(html, 'html.parser')
+
+                # 태그가 테이블이고 클래스가 tData tt인 요소를 찾기
+                data = soup.find('table', {'class' : 'tData tt'})
+
+                # html의 테이블을 파이썬의 리스트 형태로 변환하기
+                table = parser_functions.make2d(data)
+
+                # 위에서 변환한 테이블 데이터를 데이터 프레임으로 만들어줌
+                df = pd.DataFrame(data = table)
+
+                # 전처리
+                df.columns = df.iloc[0]
+                df = df.drop([0]).reset_index(drop = True)
+
+                # csv 파일 경로 설정
+                file_name = f'/{position}_{year}년_1_원본_데이터.csv'
+                csv_file_path = now_score_data_path + file_name
+
+                # 경로에 같은 이름의 파일이 있으면 이름 변경해줌
+                if file_name[1:] in os.listdir(now_score_data_path) :
+                    csv_file_path = now_score_data_path + f'/{position}_{year}년_2_원본_데이터.csv'
+                if position == '타자' and file_name[1:] in os.listdir(now_score_data_path) :
+                    df = df.drop(['AVG'], axis = 1).reset_index(drop = True)
+                    csv_file_path = now_score_data_path + f'/{position}_{year}년_2_원본_데이터.csv'
+                if position == '투수' and file_name[1:] in os.listdir(now_score_data_path) :
+                    df = df.drop(['ERA'], axis = 1).reset_index(drop = True)
+                    csv_file_path = now_score_data_path + f'/{position}_{year}년_2_원본_데이터.csv'
+
+                # csv 파일로 만들어서 포지션 폴더에 저장해주기
+                df.to_csv(csv_file_path)
+                
+                count += 1
+        print('데이터 추출 진행중... 100%')
+        print('데이터 추출을 완료했습니다.\n')
+        
+        return csv_file_path
+    
+    except Exception as e :
+        print('<<< 에러 >>>')
+        print(e)
+        print('프로그램을 종료합니다')
+
+    # 통합 데이터 파일 리스트
+    preprocessing = path + '/현재_성적_데이터'
+    list_preprocessing_file = os.listdir(preprocessing)
+    
+    # 통합용 임시 데이터 프레임
+    tmp_df = pd.DataFrame()
+    
+    # 통합용 임시 데이터 프레임에 연도와 팀명 데이터 넣어놓기
+    tmp_df = pd.read_csv(preprocessing + '/' + list_preprocessing_file[0])
+    tmp_df = tmp_df.sort_values(by = ['팀명'])[['팀명']].reset_index(drop = True)
+    
+    print('올해 성적 데이터 통합을 시작합니다.')
+    # 통합할 데이터를 불러오기
+    for preprocessing_file in list_preprocessing_file :
+        # 통합 데이터의 경로 설정
+        preprocessing_file_path = preprocessing + '/' + preprocessing_file
+        
+        # 통합할 데이터 불러오기
+        df= pd.read_csv(preprocessing_file_path).sort_values(by = ['팀명']).reset_index(drop = True)
+        
+        # 연도, 팀명, 순위 컬럼은 제거
+        df = df.drop(['팀명', '순위', 'Unnamed: 0'], axis = 1)
+        
+        # 통합용 임시 데이터 프레임과 합치기, 옆으로 함치기
+        tmp_df = pd.concat([tmp_df, df], axis = 1) 
+        
+    # 저장할 파일 이름 설정
+    total_preprocessing_file_name = preprocessing + '/kbo_올해_성적_통합_데이터.csv'
+    
+    # 저장하기
+    tmp_df.to_csv(total_preprocessing_file_name)
+    print('데이터 통합을 완료했습니다.\n')
 
 # 포지션별 성적 통합 함수
 def kbo_preprocessing(path, source_data_path) :
@@ -410,4 +558,152 @@ def win_post_web_data(year, preprocessing, total_preprocessing_file_name) :
     # 저장하기
     final_df.to_csv(final_path)
     
-    print('전처리를 완료했습니다.')
+    print('전처리를 완료했습니다.\n')
+    
+    return final_path
+
+def als_analysis(final_path) :
+    '''
+    final_path : 해당 경로의 최종 데이터를 활용해서 알고리즘별 학습, 예측, 성능분석을 하고 최고 성능의 알고리즘과 난수를 리턴함 
+    '''
+    import pandas as pd
+    
+    # 데이터 불러오기
+    df = pd.read_csv(final_path).drop(['Unnamed: 0'], axis = 1)
+    
+    # 머신러닝 준비
+    df['포스트시즌'] = df['포스트시즌'].map(lambda x : 0 if x == 'N' else 1)
+    post_y = df['포스트시즌']
+    features = ['AVG', 'OPS', 'RISP', 'ERA', 'WHIP', 'FPCT']
+    ratio_X = df[features]
+    
+    # 알고리즘 라이브러리
+    from sklearn.linear_model import LogisticRegression # 로지스틱 회귀
+    from sklearn.tree import DecisionTreeClassifier # 결정트리 분류
+    from sklearn.ensemble import RandomForestClassifier # 앙상블/랜덤포레스트
+    from sklearn.naive_bayes import GaussianNB # 나이브베이즈
+    
+    # 성능평가 라이브러리
+    from sklearn.metrics import auc, roc_auc_score, roc_curve
+    
+    # 학습용, 테스트용 데이터 분리 라이브러리
+    from sklearn.model_selection import train_test_split
+    
+    #'알고리즘명' :알고리즘객체
+    als = {
+    'LogisticRegression' : LogisticRegression(random_state = 0),
+    'DecisionTreeClassifier' : DecisionTreeClassifier(random_state = 0),
+    'RandomForestClassifier' : RandomForestClassifier(random_state = 0),
+    'GaussianNB' :  GaussianNB(),
+    }
+    
+    # 최대 성능, 알고리즘, 알고리즘명, 난수
+    max_auc = 0
+    max_model = 0
+    max_model_name = 0
+    max_random_state = 0
+    
+    # 진행률
+    count = 0
+    rng = len(als) * 100
+    
+    print('데이터 분석을 시작합니다.')
+    for i in range(0, 100) :
+        X_train, X_test, y_train, y_test = train_test_split(ratio_X,
+                                                        post_y,
+                                                        test_size = 0.2,
+                                                        random_state = i)
+        for name,  model in als.items() :
+            # 진행률
+            progress = round((count / rng) * 100, 1)
+            print(f'분석 진행중... {progress}%')
+            
+            # 학습
+            model.fit(X_train, y_train)
+
+            # 예측 및 성능평가
+            pred = model.predict_proba(X_test)[0][1]
+            
+            if pred == 1 :
+                continue
+            
+            if max_auc < pred :
+                max_auc = pred
+                max_model = model
+                max_model_name = name
+                max_random_state = i
+            
+            count += 1
+            
+    print(f'분석 진행중... 100%\n')
+    print('데이터 분석 종료\n')
+    print('최고 성능 알고리즘과 점수')
+    print(f'als : {max_model_name}')
+    print(f'auc : {max_auc}')
+    
+    return max_model, max_random_state
+
+def predict_rank(max_model, max_random_state, final_path, csv_file_path) :
+    '''
+    max_model : 최고 성능의 알고리즘 객체
+    max_random_state : 최고 성능의 난수
+    final_path : 학습할 데이터가 있는 경로
+    csv_file_path : 예측할 데이터가 있는 경로
+    '''
+    # 알고리즘 라이브러리
+    from sklearn.linear_model import LogisticRegression # 로지스틱 회귀
+    from sklearn.tree import DecisionTreeClassifier # 결정트리 분류
+    from sklearn.ensemble import RandomForestClassifier # 앙상블/랜덤포레스트
+    from sklearn.naive_bayes import GaussianNB # 나이브베이즈
+    
+    # 성능평가 라이브러리
+    from sklearn.metrics import auc, roc_auc_score, roc_curve
+    
+    # 학습용, 테스트용 데이터 분리 라이브러리
+    from sklearn.model_selection import train_test_split
+    
+    # 파일 불러오기
+    import pandas as pd
+    
+    now_df = pd.read_csv(csv_file_path).drop(['Unnamed: 0'], axis = 1)
+    now_df = now_df[(now_df['팀명'] != '합계')]
+    
+    now_stat = dict()
+    
+    # 필요한 컬럼 추출
+    for i in range(len(now_df)) :
+        team_name = now_df['팀명'].iloc[i]
+        team_score = now_df[['AVG', 'OPS', 'RISP', 'ERA', 'WHIP', 'FPCT']].iloc[i]
+        now_stat[team_name] = team_score
+        
+    all_df = pd.read_csv(final_path).drop(['Unnamed: 0'], axis = 1)
+    
+    # 데이터 정제
+    features = ['AVG', 'OPS', 'RISP', 'ERA', 'WHIP', 'FPCT']
+    ratio_X = all_df[features]
+    all_df['포스트시즌'] = all_df['포스트시즌'].map(lambda x : 0 if x == 'N' else 1)
+    post_y = all_df['포스트시즌']
+    
+    X_train, X_test, y_train, y_test = train_test_split(ratio_X,
+                                                        post_y,
+                                                        test_size = 0.2,
+                                                        random_state = max_random_state)
+    
+    # 훈련
+    max_model.fit(X_train, y_train)
+    
+    predict_score = {}
+    
+    # 팀별 성적 예측
+    for team, score in now_stat.items():
+        pred = max_model.predict_proba([score])[0][1]
+        team_score = round(pred * 100, 3)
+        predict_score[team] = team_score
+        
+    # 내림차순 정렬
+    import operator
+
+    rank_team = sorted(predict_score.items(), key = operator.itemgetter(1), reverse = True)
+    print(rank_team)
+    
+    return rank_team
