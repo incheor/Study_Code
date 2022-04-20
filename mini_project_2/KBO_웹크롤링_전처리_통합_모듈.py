@@ -1,17 +1,18 @@
 # 구동 함수
 def run() :
-    year, path = run_start()
-    path, source_data_path = kbo_record_web_crawling(year, path)
-    preprocessing, total_preprocessing_file_name = kbo_preprocessing(path, source_data_path)
-    final_path = win_post_web_data(year, preprocessing, total_preprocessing_file_name)
-    total_preprocessing_file_name = now_score_kbo(path)
-    max_model, max_random_state = als_analysis(final_path)
-    rank_team = predict_rank(max_model, max_random_state, final_path, total_preprocessing_file_name)
+    final_path, total_preprocessing_file_name, now_year = rkkwn()
+    rank_team = qapr(final_path, total_preprocessing_file_name, now_year)
     return rank_team
 
 # 시작 함수
 def run_start() :    
     import os
+    from datetime import datetime
+
+    # 현재 시간(연도)
+    now = datetime.now()
+    now_year = now.year
+    
     while True :
         try :
             year = int(input(
@@ -22,6 +23,9 @@ def run_start() :
             ))
             if year < 2001 :
                 print('잘못 입력하셨습니다. 2001년 이후로 입력해주세요.\n')
+                continue
+            if year > now_year :
+                print(f'잘못 입력하셨습니다. {now_year}년 이전으로 입력해주세요.\n')
                 continue
             path = input(
 '''
@@ -69,7 +73,7 @@ def kbo_record_web_crawling(year, path) :
     
     # 경로의 끝에 '/' 가 있으면 제거해줌
     if path[-1] == '/' :
-                    path = path[:-1]
+        path = path[:-1]
             
     # 추출한 데이터를 저장할 폴더 경로 설정
     source_data_path = path + '/원본_데이터'
@@ -187,7 +191,7 @@ def now_score_kbo(path) :
 
     # 현재 시간(연도)
     now = datetime.now()
-    year = now.year
+    now_year = now.year
 
     # 크롬 드라이버
     driver = webdriver.Chrome('C:/ChromeDriver_exe/chrome_99_driver.exe')
@@ -233,7 +237,7 @@ def now_score_kbo(path) :
 
                 # find_element_by_id로 드롭박스를 찾고
                 # 그 태그에 연도 값을 넣어서 페이지를 갱신해줌 
-                driver.find_element_by_id(tag_id).send_keys(str(year))
+                driver.find_element_by_id(tag_id).send_keys(str(now_year))
                 time.sleep(1)
 
                 # 렌더링된 페이지의 요소들을 문자열 형태로 가져오기 
@@ -256,18 +260,18 @@ def now_score_kbo(path) :
                 df = df.drop([0]).reset_index(drop = True)
 
                 # csv 파일 경로 설정
-                file_name = f'/{position}_{year}년_1_원본_데이터.csv'
+                file_name = f'/{position}_{now_year}년_1_원본_데이터.csv'
                 csv_file_path = now_score_data_path + file_name
 
                 # 경로에 같은 이름의 파일이 있으면 이름 변경해줌
                 if file_name[1:] in os.listdir(now_score_data_path) :
-                    csv_file_path = now_score_data_path + f'/{position}_{year}년_2_원본_데이터.csv'
+                    csv_file_path = now_score_data_path + f'/{position}_{now_year}년_2_원본_데이터.csv'
                 if position == '타자' and file_name[1:] in os.listdir(now_score_data_path) :
                     df = df.drop(['AVG'], axis = 1).reset_index(drop = True)
-                    csv_file_path = now_score_data_path + f'/{position}_{year}년_2_원본_데이터.csv'
+                    csv_file_path = now_score_data_path + f'/{position}_{now_year}년_2_원본_데이터.csv'
                 if position == '투수' and file_name[1:] in os.listdir(now_score_data_path) :
                     df = df.drop(['ERA'], axis = 1).reset_index(drop = True)
-                    csv_file_path = now_score_data_path + f'/{position}_{year}년_2_원본_데이터.csv'
+                    csv_file_path = now_score_data_path + f'/{position}_{now_year}년_2_원본_데이터.csv'
 
                 # csv 파일로 만들어서 포지션 폴더에 저장해주기
                 df.to_csv(csv_file_path)
@@ -314,7 +318,7 @@ def now_score_kbo(path) :
     tmp_df.to_csv(total_preprocessing_file_name)
     print('데이터 통합을 완료했습니다.\n')
     
-    return total_preprocessing_file_name
+    return total_preprocessing_file_name, now_year
 
 # 포지션별 성적 통합 함수
 def kbo_preprocessing(path, source_data_path) :
@@ -563,10 +567,34 @@ def win_post_web_data(year, preprocessing, total_preprocessing_file_name) :
     
     return final_path
 
+# 에측할 분야(우승팀 또는 포스트시즌 진출팀) 입력받기
+def q_div() :
+    while True :
+        p_div = input(
+'''
+예측할 분야의 번호를 입력해 주세요.
+1. 우승팀 예측
+2. 포스트시즌 진출팀 예측
+'''
+        )
+        if p_div == '1' :
+            print('우승팀 예측을 시작합니다.\n')
+            p_div = '우승'
+            break
+        elif p_div == '2' :
+            print('포스트시즌 진출팀 예측을 시작합니다.\n')
+            p_div = '포스트시즌'
+            break
+        else :
+            print('정확한 번호를 입력해 주세요.')
+            continue
+    return p_div
+
 # 분석
-def als_analysis(final_path) :
+def als_analysis(final_path, p_div) :
     '''
-    final_path : 해당 경로의 최종 데이터를 활용해서 알고리즘별 학습, 예측, 성능분석을 하고 최고 성능의 알고리즘과 난수를 리턴함 
+    final_path : 해당 경로의 최종 데이터를 활용해서 알고리즘별 학습, 예측, 성능분석을 하고 최고 성능의 알고리즘과 난수를 리턴함
+    p_div : 예측할 분야
     '''
     import pandas as pd
     
@@ -574,8 +602,8 @@ def als_analysis(final_path) :
     df = pd.read_csv(final_path).drop(['Unnamed: 0'], axis = 1)
     
     # 머신러닝 준비
-    df['포스트시즌'] = df['포스트시즌'].map(lambda x : 0 if x == 'N' else 1)
-    post_y = df['포스트시즌']
+    df[p_div] = df[p_div].map(lambda x : 0 if x == 'N' else 1)
+    post_y = df[p_div]
     features = ['AVG', 'OPS', 'RISP', 'ERA', 'WHIP', 'FPCT']
     ratio_X = df[features]
     
@@ -617,6 +645,7 @@ def als_analysis(final_path) :
                                                         random_state = i)
         for name,  model in als.items() :
             # 진행률
+            count += 1
             progress = round((count / rng) * 100, 1)
             print(f'분석 진행중... {progress}%')
             
@@ -635,9 +664,6 @@ def als_analysis(final_path) :
                 max_model_name = name
                 max_random_state = i
             
-            count += 1
-            
-    print(f'분석 진행중... 100%\n')
     print('데이터 분석 종료\n')
     print('최고 성능 알고리즘과 점수, 난수')
     print(f'als : {max_model_name}')
@@ -647,12 +673,13 @@ def als_analysis(final_path) :
     return max_model, max_random_state
 
 # 순위 예측
-def predict_rank(max_model, max_random_state, final_path, total_preprocessing_file_name) :
+def predict_rank(max_model, max_random_state, final_path, total_preprocessing_file_name, p_div) :
     '''
     max_model : 최고 성능의 알고리즘 객체
     max_random_state : 최고 성능의 난수
     final_path : 학습할 데이터가 있는 경로
     csv_file_path : 예측할 데이터가 있는 경로
+    p_div : 예측할 분야
     '''
     # 알고리즘 라이브러리
     from sklearn.linear_model import LogisticRegression # 로지스틱 회귀
@@ -685,8 +712,8 @@ def predict_rank(max_model, max_random_state, final_path, total_preprocessing_fi
     # 데이터 정제
     features = ['AVG', 'OPS', 'RISP', 'ERA', 'WHIP', 'FPCT']
     ratio_X = all_df[features]
-    all_df['포스트시즌'] = all_df['포스트시즌'].map(lambda x : 0 if x == 'N' else 1)
-    post_y = all_df['포스트시즌']
+    all_df[p_div] = all_df[p_div].map(lambda x : 0 if x == 'N' else 1)
+    post_y = all_df[p_div]
     
     X_train, X_test, y_train, y_test = train_test_split(ratio_X,
                                                         post_y,
@@ -712,6 +739,111 @@ def predict_rank(max_model, max_random_state, final_path, total_preprocessing_fi
     
     return rank_team
 
+def rate_visualize(rank_team, p_div, now_year) :
+    from matplotlib import pyplot as plt
+    import seaborn as sns
+    import os
+    plt.rc('font', family = 'Malgun Gothic')
+    
+    list_team = list()
+    list_score = list()
+
+    for (team, score) in rank_team :
+        list_team.append(team)
+        list_score.append(score)
+
+    fig, ax = plt.subplots(figsize = (12, 6))
+    sns.barplot(x = list_team, y = list_score, ax = ax)
+    sns.despine(fig)
+
+    ax.grid(False)
+    ax.set_yticks([])
+    
+    graph_title = f'KBO {now_year} {p_div} 확률'
+
+    fig.suptitle(graph_title)
+
+    for rect in ax.patches:
+        y_value = rect.get_height()
+        x_value = rect.get_x() + rect.get_width() / 2
+
+        label = '{:.3f}%'.format(y_value)
+        plt.annotate(label, (x_value, y_value), ha = 'center', fontsize = 10)
+
+    plt.show()
+    
+    while True :
+        save_graph_path = input('그래프를 저장할 경로를 입력해주세요.\n')
+        if os.path.isdir(save_graph_path) == True :
+            if save_graph_path[-1] == '/' :
+                save_graph_path = save_graph_path[:-1]
+            save_graph_path  = save_graph_path + '/' + graph_title + '.pdf'
+            break
+        print('정확한 경로를 입력해주세요.\n')
+    fig.savefig(save_graph_path)
+    print('그래프 이미지를 저장했습니다.\n')
+    
+# run_start, kbo_record_web_crawling, kbo_preprocessing, win_post_web_data, now_score_kbo를
+# 하나로 묶어서 스킵할지 물어보는 함수
+def rkkwn() :
+    print('-' * 30, '프로그램 시작', '-' * 30)
+    import time
+    import os
+    while True :
+        time.sleep(0.5)
+        # 웹크롤링이 너무 오래 걸려서 스킵할지 아니면 진행할지 물어봄
+        q = input(
+'''
+KBO 데이터 수집 및 전처리를 진행하시려면 ( 실행 )을 입력,
+데이터가 존재하는 경우 ( 스킵 )을 입력해주세요.
+'''
+        ).strip()
+        # 데이터가 없으면 진행
+        if q == '실행' : 
+            year, path = run_start()
+            path, source_data_path = kbo_record_web_crawling(year, path)
+            preprocessing, total_preprocessing_file_name = kbo_preprocessing(path, source_data_path)
+            final_path = win_post_web_data(year, preprocessing, total_preprocessing_file_name)
+            total_preprocessing_file_name, now_year = now_score_kbo(path)
+            
+            return final_path, total_preprocessing_file_name, now_year
+
+        # 데이터가 있으면 경로 입력하고 스킵
+        elif q == '스킵' :
+            # 현재 시간(연도)
+            from datetime import datetime
+            now = datetime.now()
+            now_year = now.year
+            while True :
+                final_path = input('최적의 모델 선택에 사용할 최종본 데이터(csv)가 있는 경로를 입력해주세요.\n')
+                total_preprocessing_file_name = input('\n예측을 위한 올해 데이터(csv)가 있는 경로를 입력해주세요.\n')
+                if os.path.isfile(final_path) == False or os.path.isfile(total_preprocessing_file_name) == False :
+                    print('정확한 경로를 입력해주세요.\n')
+                    continue
+                return final_path, total_preprocessing_file_name, now_year
+        else :
+            print('정확히 입력해주세요.\n')
+            continue
+            
+
+# q_div, als_analysis, predict_rank, rate_visualize 반복할지 물어보는 함수
+def qapr(final_path, total_preprocessing_file_name, now_year) :
+    while True :
+        p_div = q_div()
+        max_model, max_random_state = als_analysis(final_path, p_div)
+        rank_team = predict_rank(max_model, max_random_state, final_path, total_preprocessing_file_name, p_div)
+        rate_visualize(rank_team, p_div, now_year)
+        
+        # 분석 반복 종료할지 물어봄
+        q = input(
+'''
+계속 하시려면 아무 값을 입력,
+분석을 종료하시려면 ( 종료 )를 입력해주세요.
+'''
+            ).strip()
+        if q == '종료' :
+            print('분석을 종료합니다.\n')
+            return rank_team
 
 if __name__ == '__main__':
     run()
